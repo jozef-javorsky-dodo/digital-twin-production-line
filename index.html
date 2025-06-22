@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="author" content="jozef.javorsky.dodo@gmail.com, github.com/jozef-javorsky-dodo" />
+  <meta name="description"
+    content="Real-time digital twin simulation of a small factory production line, demonstrating modeling and simulation methods with TypeScript and Google Charts." />
+  <meta name="theme-color" content="#0078d4" />
+  <title>
+    Real-time Modeling and Simulation Method of Digital Twin Production Line
+  </title>
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏭</text></svg>" />
+  <style>
+    :root {
+      --primary-color: #0078d4;
+      --secondary-color: #005a9e;
+      --background-color: #f0f2f5;
+      --surface-color: #ffffff;
+      --text-color: #333333;
+      --light-text-color: #ffffff;
+      --border-color: #e0e0e0;
+
+      --idle-bg: #fffacd;
+      --idle-border: #f0ad4e;
+      --idle-text: #333333;
+
+      --processing-bg: #d4edda;
+      --processing-border: #5cb85c;
+      --processing-text: var(--light-text-color);
+
+      --down-bg: #f8d7da;
+      --down-border: #d9534f;
+      --down-text: var(--light-text-color);
+
+      --blocked-output-bg: #e9ecef;
+      --blocked-output-border: #adb5bd;
+      --blocked-output-state-bg: #6c757d;
+      --blocked-output-state-text: var(--light-text-color);
+
+      --chart-title-color: var(--secondary-color);
+      --chart-text-color: var(--text-color);
+    }
+
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    header {
+      background-color: var(--primary-color);
+      color: var(--light-text-color);
+      padding: 15px 25px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.8em;
+      font-weight: 600;
+    }
+
+    main {
+      flex-grow: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 20px auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .simulation-container,
+    .charts-container {
+      background-color: var(--surface-color);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .simulation-container h2,
+    .charts-container h2 {
+      margin-top: 0;
+      color: var(--secondary-color);
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 10px;
+      font-size: 1.5em;
+      font-weight: 500;
+    }
+
+    #factory-floor {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 20px;
+      padding: 20px 10px;
+      justify-content: flex-start;
+      align-items: flex-start;
+      min-height: 220px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: #f9f9f9;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .machine {
+      width: 130px;
+      min-width: 130px;
+      height: 200px;
+      border: 2px solid #555;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+      transition: background-color 0.3s ease, border-color 0.3s ease;
+      background-clip: padding-box;
+    }
+
+    .machine-name {
+      font-weight: bold;
+      font-size: 0.9em;
+      color: var(--text-color);
+      text-align: center;
+      margin-bottom: 5px;
+      word-break: break-word;
+    }
+
+    .machine-state {
+      font-size: 0.8em;
+      padding: 4px 8px;
+      border-radius: 4px;
+      text-align: center;
+      width: 90%;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    .machine-stats {
+      font-size: 0.75em;
+      text-align: center;
+      width: 100%;
+      margin-top: auto;
+      line-height: 1.3;
+      color: #444;
+    }
+
+    .machine-buffer {
+      font-size: 0.75em;
+      margin-top: 5px;
+      width: 100%;
+      text-align: center;
+      color: #666;
+      padding: 3px;
+      background-color: #e9ecef;
+      border-radius: 3px;
+    }
+
+    .product-item-display {
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      background-color: var(--primary-color);
+      margin: 8px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7em;
+      color: var(--light-text-color);
+      font-weight: bold;
+      box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .machine.idle {
+      background-color: var(--idle-bg);
+      border-color: var(--idle-border);
+    }
+
+    .machine.idle .machine-state {
+      background-color: var(--idle-border);
+      color: var(--idle-text);
+    }
+
+    .machine.processing {
+      background-color: var(--processing-bg);
+      border-color: var(--processing-border);
+    }
+
+    .machine.processing .machine-state {
+      background-color: var(--processing-border);
+      color: var(--processing-text);
+    }
+
+    .machine.down {
+      background-color: var(--down-bg);
+      border-color: var(--down-border);
+    }
+
+    .machine.down .machine-state {
+      background-color: var(--down-border);
+      color: var(--down-text);
+    }
+
+    .machine.blocked_output {
+      background-color: var(--blocked-output-bg);
+      border-color: var(--blocked-output-border);
+    }
+
+    .machine.blocked_output .machine-state {
+      background-color: var(--blocked-output-state-bg);
+      color: var(--blocked-output-state-text);
+    }
+
+    #charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 20px;
+    }
+
+    .chart {
+      width: 100%;
+      min-height: 320px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    #loading-message {
+      text-align: center;
+      padding: 50px;
+      font-size: 1.2em;
+      color: #555;
+    }
+
+    .error-message {
+      color: red;
+      font-family: sans-serif;
+      padding: 20px;
+      text-align: center;
+      background-color: #fff0f0;
+      border: 1px solid red;
+      border-radius: 5px;
+      margin: 20px;
+    }
+
+    .console-guidance {
+      text-align: center;
+      padding: 10px;
+      font-size: 0.9em;
+      color: #777;
+    }
+
+    footer {
+      background-color: #333;
+      color: var(--light-text-color);
+      text-align: center;
+      padding: 20px 15px;
+      font-size: 0.9em;
+      margin-top: auto;
+    }
+
+    footer p {
+      margin-bottom: 15px;
+    }
+
+    .visually-hidden {
+      border: 0;
+      clip: rect(0 0 0 0);
+      height: 1px;
+      margin: -1px;
+      overflow: hidden;
+      padding: 0;
+      position: absolute;
+      width: 1px;
+      white-space: nowrap;
+    }
+
+    footer nav ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    footer nav ul li a {
+      color: var(--light-text-color);
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease, text-decoration 0.2s ease;
+      display: inline-block;
+    }
+
+    footer nav ul li a:hover,
+    footer nav ul li a:focus {
+      background-color: rgba(255, 255, 255, 0.15);
+      text-decoration: underline;
+      outline: none;
+    }
+
+    @media (max-width: 768px) {
+      header h1 {
+        font-size: 1.5em;
+      }
+
+      main {
+        margin: 10px auto;
+        padding: 10px;
+      }
+
+      .simulation-container h2,
+      .charts-container h2 {
+        font-size: 1.3em;
+      }
+
+      .machine {
+        width: 110px;
+        min-width: 110px;
+        height: 180px;
+      }
+
+      #charts-grid {
+        grid-template-columns: 1fr;
+      }
+
+      footer nav ul {
+        gap: 10px;
+      }
+
+      footer nav ul li a {
+        padding: 5px 10px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      header h1 {
+        font-size: 1.2em;
+      }
+
+      .simulation-container h2,
+      .charts-container h2 {
+        font-size: 1.1em;
+      }
+
+      #factory-floor {
+        padding: 10px 5px;
+        min-height: 180px;
+      }
+
+      .machine {
+        width: 90px;
+        min-width: 90px;
+        height: 160px;
+        padding: 5px;
+      }
+
+      .machine-name {
+        font-size: 0.8em;
+      }
+
+      .machine-state {
+        font-size: 0.7em;
+        padding: 3px 5px;
+      }
+
+      .product-item-display {
+        width: 20px;
+        height: 20px;
+        font-size: 0.6em;
+        margin: 5px auto;
+      }
+
+      .machine-buffer,
+      .machine-stats {
+        font-size: 0.7em;
+      }
+
+      .chart {
+        min-height: 280px;
+      }
+
+      footer nav ul {
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>
+      Real-time Modeling and Simulation Method of Digital Twin Production Line
+    </h1>
+  </header>
+
+  <main>
+    <div id="loading-message" aria-live="polite">
+      Loading Real-time Production Line Simulation...
+      <p class="console-guidance">
+        If loading takes too long or fails, please check your browser's
+        developer console (usually F12) for error messages. Ensure you are
+        running this page from a local web server for testing, not directly
+        from the file system (file:///...).
+      </p>
+    </div>
+    <div id="error-display-container" style="display: none" aria-live="assertive"></div>
+
+    <section class="simulation-container" style="display: none">
+      <h2>Factory Floor Simulation</h2>
+      <div id="factory-floor" aria-live="polite" aria-atomic="false"></div>
+    </section>
+
+    <section class="charts-container" style="display: none">
+      <h2>Production Analytics</h2>
+      <div id="charts-grid" aria-live="polite" aria-atomic="false">
+        <div id="machine-status-chart" class="chart" role="img"
+          aria-label="Pie chart showing machine status distribution."></div>
+        <div id="production-output-chart" class="chart" role="img"
+          aria-label="Line chart showing total production output over time."></div>
+        <div id="processed-items-chart" class="chart" role="img"
+          aria-label="Column chart showing processed items per machine."></div>
+        <div id="machine-utilization-chart" class="chart" role="img"
+          aria-label="Stacked column chart showing machine state duration percentages."></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Digital Twin Simulation © 2024. Powered by TypeScript & Google Charts.
+    </p>
+    <nav role="navigation" aria-label="Author Links">
+      <ul>
+        <li>
+          <a href="https://github.com/jozef-javorsky-dodo" target="_blank" rel="noopener noreferrer"
+            aria-label="Jozef Javorsky's GitHub Profile (opens in new tab)">GitHub <span class="visually-hidden">(opens
+              in new tab)</span></a>
+        </li>
+        <li>
+          <a href="https://g.dev/jozef-javorsky-dodo" target="_blank" rel="noopener noreferrer"
+            aria-label="Jozef Javorsky's Google Developer Profile (opens in new tab)">Google Dev
+            <span class="visually-hidden">(opens in new tab)</span></a>
+        </li>
+        <li>
+          <a href="mailto:jozef.javorsky.dodo@gmail.com" aria-label="Email Jozef Javorsky">Email</a>
+        </li>
+      </ul>
+    </nav>
+  </footer>
+
+  <script async src="https://cdnjs.cloudflare.com/ajax/libs/typescript/4.7.4/typescript.min.js"></script>
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <script>
+    let appScriptLoaded = false;
+    async function loadAndRunTypeScript(url) {
+      if (appScriptLoaded) return;
+      appScriptLoaded = true;
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(
+            `HTTP error! status: ${response.status} for ${url}. Ensure you are running this from a web server for local testing, not file:///`
+          );
+        }
+        const tsCode = await response.text();
+        const compilerOptions = {
+          target: ts.ScriptTarget.ES2020,
+          module: ts.ModuleKind.None,
+          removeComments: true,
+        };
+        const jsCode = ts.transpile(tsCode, { compilerOptions });
+        const scriptElement = document.createElement("script");
+        scriptElement.type = "text/javascript";
+        scriptElement.textContent = jsCode;
+        document.body.appendChild(scriptElement);
+      } catch (error) {
+        console.error("Failed to load or transpile TypeScript:", error);
+        const errorContainer = document.getElementById(
+          "error-display-container"
+        );
+        const loadingMessage = document.getElementById("loading-message");
+        if (loadingMessage) loadingMessage.style.display = "none";
+        if (errorContainer) {
+          errorContainer.innerHTML = `<p class="error-message"><strong>Application Error:</strong> Failed to load or initialize the simulation. ${error.message}. Please check the browser console for more details. This often occurs if opening index.html directly from the file system (file:///); try using a local web server.</p>`;
+          errorContainer.style.display = "block";
+        }
+      }
+    }
+
+    google.charts.load("current", { packages: ["corechart"] });
+    google.charts.setOnLoadCallback(() => {
+      function checkGoogleChartsReady(callback) {
+        if (
+          typeof google !== "undefined" &&
+          google.visualization &&
+          typeof google.visualization.PieChart === "function" &&
+          typeof google.visualization.LineChart === "function" &&
+          typeof google.visualization.ColumnChart === "function" &&
+          typeof google.visualization.DataTable === "function"
+        ) {
+          if (
+            typeof google.charts !== "undefined" &&
+            typeof google.charts.loaded === "undefined"
+          ) {
+            google.charts.loaded = true;
+          }
+          callback();
+        } else {
+          requestAnimationFrame(() => checkGoogleChartsReady(callback));
+        }
+      }
+      checkGoogleChartsReady(() => {
+        loadAndRunTypeScript("app.ts");
+      });
+    });
+  </script>
+</body>
+
+</html>
